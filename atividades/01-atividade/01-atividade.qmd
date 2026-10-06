@@ -1,7 +1,7 @@
 ---
 title: "Econometria III <br> Atividade 1"
 subtitle: "Introdução ao Modelo de Efeitos Fixos em R"
-author: "SEU NOME"
+author: "Felipe Fonseca"
 lang: pt-BR
 format:
   html:
@@ -25,11 +25,11 @@ library(tidyverse)
 library(plm)
 library(modelsummary)
 library(fixest)
+library(here)
 
 # Define o caminho relativo dos arquivos de dados.
-path_vtreinamais <- "dados/brutos/equipes-varsity-treina-mais.csv"
-path_maia2018 <- "dados/brutos/Data_AgricultureClimate.csv"
-
+path_vtreinamais <- here("dados/brutos/equipes-varsity-treina-mais.csv")
+path_maia2018 <- here("dados/brutos/Data_AgricultureClimate.csv")
 # Importa os arquivos usando o caminho relativo.
 dados_vtreinamais <- read_csv(path_vtreinamais)
 dados_maia2018 <- read_csv(path_maia2018)
