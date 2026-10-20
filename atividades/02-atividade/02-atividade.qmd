@@ -1,0 +1,276 @@
+---
+title: "Econometria III <br> Atividade 2"
+subtitle: "Efeitos fixos, efeitos aleatórios e teste de Hausman em R"
+author: "FELIPE FONSECA"
+lang: pt-BR
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# Configura a exibição de números.
+options(digits = 5, scipen = 999)
+
+# Carrega os pacotes necessários à atividade.
+library(tidyverse)
+library(plm)
+library(POE5Rdata)
+
+# carrega os dados nls_panel
+data("nls_panel", package = "POE5Rdata")
+```
+
+
+## Problema empírico
+
+Queremos investigar a relação entre **salários** e características observáveis das trabalhadoras, reconhecendo que características individuais não observadas, como habilidade ou motivação, também podem influenciar os salários.
+
+A variável dependente é `lwage` (logaritmo do salário). Adotaremos **a mesma especificação da Aula 2**:
+
+$$
+\begin{aligned}
+\mathrm{lwage}_{it} ={}& \beta_0 + \beta_1\mathrm{educ}_i
++ \beta_2\mathrm{exper}_{it} + \beta_3\mathrm{exper}_{it}^{2} \\
+&+ \beta_4\mathrm{tenure}_{it} + \beta_5\mathrm{tenure}_{it}^{2}
++ \beta_6\mathrm{black}_i \\
+&+ \beta_7\mathrm{south}_{it} + \beta_8\mathrm{union}_{it}
++ u_i + e_{it}.
+\end{aligned}
+$$
+
+Os índices são `id` (trabalhadora) e `year` (ano). As variáveis `educ` (escolaridade) e `black` (indicadora se a mulher é negra, ou não) são **invariáveis no tempo** neste painel. As variáveis `exper`, `tenure`, `south` e `union` podem variar. Os termos quadráticos de experiência e tempo no emprego devem ser mantidos em todos os modelos em que essas regressoras aparecem.
+
+
+## Questão 1 — Estrutura do painel 
+
+Crie um objeto chamado `nls_painel` com `plm::pdata.frame()`, informando `id` e `year` como índices. Utilize `plm::pdim()` para verificar o número de trabalhadoras, os períodos observados, o total de observações e se o painel é balanceado. Identifique também os anos presentes na base.
+
+```{r}
+#| label: ap2-estrutura-painel
+
+# Crie nls_painel a partir de nls_panel, com os índices id e year.
+
+# Verifique as dimensões e o balanceamento com plm::pdim().
+
+# Identifique os anos presentes na base.
+```
+
+**Resposta:** *Sua resposta aqui.*
+
+
+
+## Questão 2 — Variação dentro e entre trabalhadoras
+
+Explique por que os coeficientes de `educ` e `black` não são identificados pelo estimador *within* de efeitos fixos. Como essas variáveis podem contribuir para a estimação por efeitos aleatórios?
+
+**Resposta:** *Sua resposta aqui.*
+
+
+
+## Questão 3 — Estimação e comparação 
+
+Estime os modelos abaixo, salvando os resultados com os nomes indicados:
+
+1. **MQO agrupado:** `modelo_pool`, com `model = "pooling"` e todas as regressoras da especificação.
+
+2. **Modelo de Efeitos Fixos:** `modelo_ef`, com `model = "within"` e as seis regressoras que variam no tempo, incluindo os dois termos quadráticos.
+
+3. **Modelo de Efeitos Aleatórios:** `modelo_ea`, com `model = "random"`, `random.method = "swar"` e todas as regressoras da especificação.
+
+
+::: {.callout-tip}
+## "O que significa `random.method = 'swar'`?"
+
+No pacote `plm`, o argumento `model = "random"` especifica um
+**modelo de efeitos aleatórios**, enquanto `random.method = "swar"`
+define o procedimento utilizado para estimar os **componentes de
+variância do erro composto**.
+
+A opção `"swar"` corresponde ao método de **Swamy–Arora (1972)**,
+que é o **padrão (*default*) do pacote `plm`**. Portanto, não é
+obrigatório especificá-la, mas fazê-lo torna explícito o procedimento
+de estimação utilizado.
+
+**Como funciona o método de Swamy–Arora?**
+
+No modelo de efeitos aleatórios, o erro composto é
+
+$$
+v_{it}=u_i+e_{it},
+$$
+
+em que $u_i$ representa o efeito individual não observado e $e_{it}$
+é o erro idiossincrático.
+
+O método de Swamy–Arora utiliza resultados de regressões auxiliares
+*within* e *between* para estimar, pelo **método dos momentos**, os
+componentes de variância:
+
+- $\sigma_u^2$: variância do efeito individual não observado;
+- $\sigma_e^2$: variância do erro idiossincrático.
+
+Essas estimativas permitem construir a matriz de covariância estimada
+do erro composto e calcular o parâmetro da transformação
+***quasi-demeaning***.
+
+No `plm`, esse parâmetro é denominado **`theta`**, correspondente ao
+$\alpha$ utilizado nos slides da Aula 2.
+
+Com os componentes estimados, o modelo é ajustado por
+**mínimos quadrados generalizados factíveis (FGLS)**.
+
+**Importante:** o método de Swamy–Arora estima os componentes de
+variância, mas **não verifica nem garante a exogeneidade do efeito
+individual**, expressa por
+
+$$
+E(u_i\mid X_i,w_i)=0.
+$$
+
+Portanto, utilizar esse método não elimina possíveis problemas de
+endogeneidade nem garante, por si só, a consistência dos estimadores
+de efeitos aleatórios.
+
+Na Questão 5, você poderá examinar os componentes estimados e
+o parâmetro `theta` utilizando `plm::ercomp(modelo_ea)`.
+
+:::
+
+
+Utilize o objeto `nls_painel` como base nos três modelos. Consulte os coeficientes com `coef()` ou `summary()` e confira com `nobs()` se os três modelos utilizaram o mesmo número de observações. Não altere a amostra nem a especificação adotada na Aula 2.
+
+```{r}
+#| label: modelo_pool
+
+# Estime o MQO agrupado e salve o resultado em modelo_pool.
+
+```
+
+
+```{r}
+#| label: modelo_ef
+# Estime efeitos fixos e salve o resultado em modelo_ef.
+
+```
+
+
+```{r}
+#| label: modelo_ea
+
+# Estime efeitos aleatórios por Swamy-Arora e salve em modelo_ea.
+
+```
+
+
+```{r}
+#| label: coeficientes
+
+# Exiba os coeficientes dos três modelos.
+
+```
+
+
+
+## Questão 4 — Comparação dos coeficientes
+
+Preencha a tabela com os coeficientes estimados (quatro casas decimais). Você pode recuperar as estimativas com `coef(modelo_pool)`, `coef(modelo_ef)` e `coef(modelo_ea)`. Use `—` quando o 
+coeficiente não for identificado pelo estimador.
+
+| Regressora | MQO agrupado | Efeitos fixos | Efeitos aleatórios |
+|:---|---:|---:|---:|
+| `educ` | … | — | … |
+| `black` | … | — | … |
+| `south` | … | … | … |
+| `union` | … | … | … |
+
+**a)** Compare o **sinal e a magnitude** dos coeficientes de `union` e `south` nos três modelos. Interprete-os como associações condicionais com o **log do salário**. O que muda quando tratamos a heterogeneidade individual de maneira diferente?
+
+**Resposta:** *Sua resposta aqui.*
+
+
+**b)** Por que a possibilidade de estimar `educ` e `black` por um modelo de efeitos aleatórios **não garante**, por si só, a consistência dessas estimativas?
+
+**Resposta:** *Sua resposta aqui.*
+
+
+
+## Questão 5 — Como um modelo de efeitos aleatórios utiliza a estrutura do erro?
+
+Consulte os componentes de variância e o parâmetro `theta` estimados pelo modelo de EA. Em até **três frases**, explique a função da transformação *quasi-demeaning* e por que ela preserva parte da informação *between*.
+
+```{r}
+#| label: ap2-componentes-ea
+
+# Examine os componentes de variância e theta com plm::ercomp().
+```
+
+**Resposta:** *Sua resposta aqui.*
+
+
+
+## Questão 6 — Teste de Hausman 
+
+Aplique **o teste convencional de Hausman** aos modelos `modelo_ef` e `modelo_ea`, utilizando a função `plm::phtest()`. Informe a estatística do teste, os graus de liberdade e o valor-p. Considere um nível de significância de **5%**.
+
+```{r}
+#| label: ap2-hausman
+
+# Aplique plm::phtest() aos modelos de EF e EA.
+
+# Apresente o resultado do teste.
+```
+
+**Resposta:** *Registre a estatística, os graus de liberdade, o valor-p e a decisão.*
+
+
+
+## Questão 7 — O que o teste efetivamente compara?
+
+**a)** Formule, com suas palavras, as hipóteses nula e alternativa do teste de Hausman. Quais são os **seis coeficientes comuns** comparados nesta aplicação?
+
+**Resposta:** *Sua resposta aqui.*
+
+
+**b)** A rejeição da hipótese nula demonstra que os coeficientes de `educ` e `black` estimados por EA são inconsistentes? Justifique.
+
+**Resposta:** *Sua resposta aqui.*
+
+
+
+## Questão 8 — Avaliação econométrica
+
+Considere a hipótese adicional exigida pelo modelo convencional de efeitos aleatórios:
+
+$$
+E(u_i\mid X_i,w_i)=0.
+$$
+
+**a)** Apresente um exemplo concreto de característica individual **não observada e invariável no tempo** que poderia estar associada a alguma regressora da equação salarial. Explique por que essa associação importa para o modelo de efeitos aleatórios.
+
+**Resposta:** *Sua resposta aqui.*
+
+
+**b)** O teste de Hausman verifica se o erro idiossincrático é homocedástico ou se apresenta correlação serial? Por que essa limitação importa para a interpretação do **valor-p convencional**?
+
+**Resposta:** *Sua resposta aqui.*
+
+
+
+## Questão 9 — Conclusão da análise
+
+Em **um parágrafo curto**, apresente uma conclusão sobre a aplicação ao painel NLS. Sua resposta deve integrar: (i) uma diferença relevante entre as estimativas dos modelos de EF e EA; (ii) o resultado do teste de Hausman; (iii) a hipótese adicional de exogeneidade do modelo de EA; e (iv) pelo menos uma limitação da interpretação do teste.
+
+Não utilize o valor-p como regra automática de escolha entre modelos. Também não interprete as associações estimadas como efeitos causais sem justificar hipóteses adicionais de identificação.
+
+**Conclusão:** *Sua resposta aqui.*
+
+
