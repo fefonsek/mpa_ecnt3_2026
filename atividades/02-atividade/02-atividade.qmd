@@ -1,7 +1,7 @@
 ---
 title: "Econometria III <br> Atividade 2"
 subtitle: "Efeitos fixos, efeitos aleatórios e teste de Hausman em R"
-author: "FELIPE FONSECA"
+author: "Felipe Fonseca"
 lang: pt-BR
 format:
   html:
@@ -58,13 +58,16 @@ Crie um objeto chamado `nls_painel` com `plm::pdata.frame()`, informando `id` e 
 #| label: ap2-estrutura-painel
 
 # Crie nls_painel a partir de nls_panel, com os índices id e year.
+nls_painel <- plm::pdata.frame(nls_panel, index = c("id", "year"))
 
 # Verifique as dimensões e o balanceamento com plm::pdim().
+plm::pdim(nls_painel)
 
 # Identifique os anos presentes na base.
+sort(unique(nls_panel$year))
 ```
 
-**Resposta:** *Sua resposta aqui.*
+**Resposta:** O painel é balanceado e reúne 716 trabalhadoras observadas em 5 períodos, o que totaliza 3580 observações (716 × 5). Os anos presentes são 1982, 1983, 1985, 1987 e 1988, registrados na base como 82, 83, 85, 87 e 88. Vale notar que os períodos não são igualmente espaçados, pois não há observações para 1984 e 1986.
 
 
 
@@ -72,7 +75,9 @@ Crie um objeto chamado `nls_painel` com `plm::pdata.frame()`, informando `id` e 
 
 Explique por que os coeficientes de `educ` e `black` não são identificados pelo estimador *within* de efeitos fixos. Como essas variáveis podem contribuir para a estimação por efeitos aleatórios?
 
-**Resposta:** *Sua resposta aqui.*
+**Resposta:** O estimador *within* subtrai de cada observação a média da própria trabalhadora ao longo do tempo. Como `educ` e `black` são constantes para cada mulher neste painel, o desvio em relação à média é zero em todas as observações, e essas colunas desaparecem da matriz de regressoras transformada. Elas ficam perfeitamente colineares com o efeito individual $u_i$, que também é eliminado pela transformação, e por isso seus coeficientes não são identificados.
+
+No modelo de efeitos aleatórios a transformação é parcial (*quasi-demeaning*): subtrai-se apenas uma fração $\theta$ da média individual, com $0 < \theta < 1$. Assim, a variável transformada passa a ser $(1-\theta)\,\mathrm{educ}_i$, que não é nula e varia entre as trabalhadoras. Essa variação *between* é o que permite estimar os coeficientes de `educ` e `black`, desde que se aceite a hipótese adicional de que $u_i$ não é correlacionado com as regressoras.
 
 
 
@@ -152,6 +157,12 @@ Utilize o objeto `nls_painel` como base nos três modelos. Consulte os coeficien
 #| label: modelo_pool
 
 # Estime o MQO agrupado e salve o resultado em modelo_pool.
+modelo_pool <- plm::plm(
+  lwage ~ educ + exper + I(exper^2) + tenure + I(tenure^2) +
+    black + south + union,
+  data = nls_painel,
+  model = "pooling"
+)
 
 ```
 
@@ -159,6 +170,11 @@ Utilize o objeto `nls_painel` como base nos três modelos. Consulte os coeficien
 ```{r}
 #| label: modelo_ef
 # Estime efeitos fixos e salve o resultado em modelo_ef.
+modelo_ef <- plm::plm(
+  lwage ~ exper + I(exper^2) + tenure + I(tenure^2) + south + union,
+  data = nls_painel,
+  model = "within"
+)
 
 ```
 
@@ -167,6 +183,13 @@ Utilize o objeto `nls_painel` como base nos três modelos. Consulte os coeficien
 #| label: modelo_ea
 
 # Estime efeitos aleatórios por Swamy-Arora e salve em modelo_ea.
+modelo_ea <- plm::plm(
+  lwage ~ educ + exper + I(exper^2) + tenure + I(tenure^2) +
+    black + south + union,
+  data = nls_painel,
+  model = "random",
+  random.method = "swar"
+)
 
 ```
 
@@ -175,6 +198,12 @@ Utilize o objeto `nls_painel` como base nos três modelos. Consulte os coeficien
 #| label: coeficientes
 
 # Exiba os coeficientes dos três modelos.
+round(coef(modelo_pool), 4)
+round(coef(modelo_ef), 4)
+round(coef(modelo_ea), 4)
+
+# Confira se os três modelos usaram o mesmo número de observações.
+c(pool = nobs(modelo_pool), ef = nobs(modelo_ef), ea = nobs(modelo_ea))
 
 ```
 
@@ -187,19 +216,21 @@ coeficiente não for identificado pelo estimador.
 
 | Regressora | MQO agrupado | Efeitos fixos | Efeitos aleatórios |
 |:---|---:|---:|---:|
-| `educ` | … | — | … |
-| `black` | … | — | … |
-| `south` | … | … | … |
-| `union` | … | … | … |
+| `educ` | 0,0714 | — | 0,0733 |
+| `black` | -0,1167 | — | -0,1167 |
+| `south` | -0,1060 | -0,0163 | -0,0818 |
+| `union` | 0,1322 | 0,0637 | 0,0802 |
 
 **a)** Compare o **sinal e a magnitude** dos coeficientes de `union` e `south` nos três modelos. Interprete-os como associações condicionais com o **log do salário**. O que muda quando tratamos a heterogeneidade individual de maneira diferente?
 
-**Resposta:** *Sua resposta aqui.*
+**Resposta:** Os sinais se mantêm nos três modelos: `union` é positivo e `south` é negativo. A magnitude, porém, cai bastante quando a heterogeneidade individual é controlada. Mantidas as demais regressoras, ser sindicalizada está associado a um salário cerca de 13,2% maior no MQO agrupado, 6,4% maior por efeitos fixos e 8,0% maior por efeitos aleatórios (aproximação $100\hat\beta$ para o log do salário). Para `south`, a associação passa de cerca de -10,6% no MQO agrupado para apenas -1,6% por efeitos fixos, valor que não é estatisticamente diferente de zero (valor-p de 0,65), e fica em -8,2% por efeitos aleatórios.
+
+O MQO agrupado usa as diferenças entre trabalhadoras e, por isso, mistura o papel do sindicato ou da região com características não observadas que diferem entre as mulheres. O estimador de efeitos fixos usa apenas a variação dentro de cada trabalhadora, ou seja, compara a mesma mulher quando muda de situação. No caso de `south`, só cerca de 4% das trabalhadoras mudam de região no período, de modo que a estimativa *within* se apoia em poucas observações e fica imprecisa. Os efeitos aleatórios ficam entre os dois, mais próximos de EF, porque a transformação remove 74,4% da média individual ($\theta = 0{,}744$). A queda das estimativas ao controlar $u_i$ é compatível com a ideia de que parte da associação do MQO agrupado vinha de diferenças permanentes entre as trabalhadoras.
 
 
 **b)** Por que a possibilidade de estimar `educ` e `black` por um modelo de efeitos aleatórios **não garante**, por si só, a consistência dessas estimativas?
 
-**Resposta:** *Sua resposta aqui.*
+**Resposta:** Porque a identificação de `educ` e `black` no modelo de efeitos aleatórios vem da variação *between*, e essa variação só produz estimativas consistentes se o efeito individual não observado for não correlacionado com as regressoras, $E(u_i \mid X_i, w_i) = 0$. Se uma característica permanente como habilidade estiver correlacionada com a escolaridade, o coeficiente de `educ` absorve parte do efeito dessa característica, exatamente como no viés de variável omitida. O método de Swamy–Arora estima os componentes de variância e o FGLS usa essa estrutura para ganhar eficiência, mas nenhuma dessas etapas verifica a hipótese de exogeneidade. Conseguir calcular um número não significa que ele estime o parâmetro de interesse.
 
 
 
@@ -211,9 +242,10 @@ Consulte os componentes de variância e o parâmetro `theta` estimados pelo mode
 #| label: ap2-componentes-ea
 
 # Examine os componentes de variância e theta com plm::ercomp().
+plm::ercomp(modelo_ea)
 ```
 
-**Resposta:** *Sua resposta aqui.*
+**Resposta:** A variância do efeito individual é estimada em 0,1083 e a do erro idiossincrático em 0,0381, de modo que cerca de 74% da variância do erro composto se deve a $u_i$, e $\hat\theta = 0{,}744$. A transformação *quasi-demeaning* subtrai de cada variável apenas a fração $\hat\theta$ da média individual, o que elimina a correlação serial induzida por $u_i$ no erro composto e permite estimar o modelo por MQO nos dados transformados (FGLS). Como $\hat\theta < 1$, sobra $(1-\hat\theta)$ da média individual em cada variável, e é essa parcela que preserva a informação *between* e permite estimar `educ` e `black`.
 
 
 
@@ -225,11 +257,13 @@ Aplique **o teste convencional de Hausman** aos modelos `modelo_ef` e `modelo_ea
 #| label: ap2-hausman
 
 # Aplique plm::phtest() aos modelos de EF e EA.
+teste_hausman <- plm::phtest(modelo_ef, modelo_ea)
 
 # Apresente o resultado do teste.
+teste_hausman
 ```
 
-**Resposta:** *Registre a estatística, os graus de liberdade, o valor-p e a decisão.*
+**Resposta:** A estatística do teste é $H = 20{,}73$, com 6 graus de liberdade e valor-p de 0,0021. Como o valor-p é menor que 0,05, rejeitamos a hipótese nula ao nível de 5%: as diferenças entre as estimativas de EF e EA para os coeficientes comuns são grandes demais para serem atribuídas apenas à variabilidade amostral, sob as hipóteses do teste convencional.
 
 
 
@@ -237,12 +271,12 @@ Aplique **o teste convencional de Hausman** aos modelos `modelo_ef` e `modelo_ea
 
 **a)** Formule, com suas palavras, as hipóteses nula e alternativa do teste de Hausman. Quais são os **seis coeficientes comuns** comparados nesta aplicação?
 
-**Resposta:** *Sua resposta aqui.*
+**Resposta:** A hipótese nula é que o efeito individual não observado não está correlacionado com as regressoras. Nesse caso, EF e EA são ambos consistentes para os coeficientes comuns, e as diferenças entre eles tendem a desaparecer em grandes amostras (EA sendo o mais eficiente). A hipótese alternativa é que existe essa correlação, situação em que EF continua consistente e EA não, de modo que as estimativas divergem sistematicamente. Os seis coeficientes comparados são os de `exper`, `I(exper^2)`, `tenure`, `I(tenure^2)`, `south` e `union`.
 
 
 **b)** A rejeição da hipótese nula demonstra que os coeficientes de `educ` e `black` estimados por EA são inconsistentes? Justifique.
 
-**Resposta:** *Sua resposta aqui.*
+**Resposta:** Não. O teste compara apenas os seis coeficientes que os dois estimadores conseguem estimar, e `educ` e `black` não fazem parte dessa comparação porque não são identificados por EF. A rejeição indica que a hipótese $E(u_i \mid X_i, w_i) = 0$ é pouco plausível para o conjunto das regressoras, o que coloca as estimativas de EA sob suspeita de modo geral, inclusive as de `educ` e `black`. Mas o teste não diz quais regressoras estão correlacionadas com $u_i$. Pode ser que a correlação envolva, por exemplo, `union` ou `tenure` e não a escolaridade, e o teste não tem como distinguir esses casos. Concluir pela inconsistência de `educ` e `black` exigiria argumentos adicionais ou outra estratégia de identificação.
 
 
 
@@ -256,12 +290,30 @@ $$
 
 **a)** Apresente um exemplo concreto de característica individual **não observada e invariável no tempo** que poderia estar associada a alguma regressora da equação salarial. Explique por que essa associação importa para o modelo de efeitos aleatórios.
 
-**Resposta:** *Sua resposta aqui.*
+**Resposta:** Um exemplo é a habilidade inata ou a motivação da trabalhadora, que é praticamente constante no período e não está na base. Mulheres mais hábeis ou motivadas tendem a estudar mais e também podem permanecer mais tempo no mesmo emprego, de modo que $u_i$ estaria correlacionado com `educ` e `tenure`. O modelo de efeitos aleatórios trata $u_i$ como parte do erro composto e supõe que ele seja independente das regressoras. Se essa hipótese falha, o erro composto fica correlacionado com `educ` e `tenure`, e os estimadores de EA herdam o mesmo problema do MQO agrupado: são inconsistentes, atribuindo à escolaridade parte do efeito da habilidade. O estimador de EF não sofre desse problema para as regressoras que variam no tempo, porque elimina $u_i$.
 
 
 **b)** O teste de Hausman verifica se o erro idiossincrático é homocedástico ou se apresenta correlação serial? Por que essa limitação importa para a interpretação do **valor-p convencional**?
 
-**Resposta:** *Sua resposta aqui.*
+**Resposta:** Não. O teste convencional não verifica essas propriedades; ele as supõe. A estatística usa $\widehat V_{EF} - \widehat V_{EA}$ como variância da diferença, o que só vale quando EA é o estimador eficiente, ou seja, quando o erro idiossincrático é homocedástico e sem correlação serial e o erro composto tem exatamente a estrutura de efeitos aleatórios. Se houver heterocedasticidade ou correlação serial em $e_{it}$, algo plausível em salários observados ao longo de vários anos, EA deixa de ser eficiente, essa diferença de matrizes pode não estimar a variância correta e a distribuição qui-quadrado deixa de ser a referência adequada. Nesse caso o valor-p de 0,0021 pode estar subestimado ou superestimado, e a decisão do teste perde respaldo, mesmo que EF e EA sejam ambos consistentes.
+
+Como complemento, uma versão do teste baseada em regressão auxiliar com erros-padrão agrupados por trabalhadora, que não depende dessas hipóteses, também rejeita a hipótese nula (estatística 55,0 com 6 graus de liberdade), conforme o código abaixo.
+
+```{r}
+#| label: ap2-hausman-robusto
+
+# Complemento: teste de Hausman por regressão auxiliar (Mundlak),
+# com matriz de covariância agrupada por trabalhadora.
+# Os termos quadráticos usam as colunas exper2 e tenure2 da base,
+# idênticas a I(exper^2) e I(tenure^2), porque o método "aux"
+# não aceita I() na fórmula.
+plm::phtest(
+  lwage ~ educ + exper + exper2 + tenure + tenure2 + black + south + union,
+  data = nls_painel,
+  method = "aux",
+  vcov = function(x) plm::vcovHC(x, method = "arellano", type = "HC0", cluster = "group")
+)
+```
 
 
 
@@ -271,6 +323,6 @@ Em **um parágrafo curto**, apresente uma conclusão sobre a aplicação ao pain
 
 Não utilize o valor-p como regra automática de escolha entre modelos. Também não interprete as associações estimadas como efeitos causais sem justificar hipóteses adicionais de identificação.
 
-**Conclusão:** *Sua resposta aqui.*
+**Conclusão:** No painel NLS, o controle da heterogeneidade individual altera de forma relevante as associações estimadas: o prêmio salarial associado à sindicalização cai de cerca de 13% no MQO agrupado para 8% por efeitos aleatórios e 6% por efeitos fixos, e a associação com residir no Sul praticamente desaparece por EF. O teste de Hausman convencional rejeita a igualdade dos seis coeficientes comuns ($H = 20{,}73$, 6 g.l., valor-p = 0,0021), o que torna pouco plausível a hipótese adicional do modelo de efeitos aleatórios, $E(u_i \mid X_i, w_i) = 0$, já que características permanentes como habilidade provavelmente se relacionam com escolaridade, tempo no emprego e sindicalização. Por isso, as estimativas de EF parecem mais confiáveis para as regressoras que variam no tempo, enquanto os coeficientes de `educ` e `black` obtidos por EA devem ser lidos com cautela. Essa leitura, contudo, depende das hipóteses do teste convencional, que supõe erros idiossincráticos homocedásticos e sem correlação serial, e o teste não indica quais regressoras são endógenas nem garante a consistência de EF, que também exige exogeneidade estrita de $e_{it}$. Em todos os casos, os coeficientes devem ser lidos como associações condicionais, e não como efeitos causais.
 
 

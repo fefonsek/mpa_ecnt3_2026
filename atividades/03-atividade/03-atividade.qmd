@@ -1,0 +1,236 @@
+---
+title: "Econometria III <br> Atividade 3 — Resolução"
+subtitle: "Inferência robusta em modelos para dados em painel com R"
+author: "Felipe Fonseca"
+lang: pt-BR
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| echo: false
+
+# Define opções de impressão numérica (saída mais legível).
+options(digits = 5, scipen = 999)
+
+# Carrega os pacotes necessários à atividade.
+library(plm)
+library(fixest)
+library(sandwich)
+
+# Carrega os dados artificiais de Petersen (2009).
+data("PetersenCL", package = "sandwich")
+```
+
+
+
+## Questão 1 — Comparação dos procedimentos de inferência
+
+### 1.1. Estimação e inferência com `plm`
+
+O código abaixo estima o modelo MQO combinado e apresenta os resultados para os procedimentos convencional, White–Arellano (empresa) e Driscoll–Kraay.
+
+```{r}
+#| label: q1-plm
+
+# Estima o modelo MQO combinado (pooled OLS).
+modelo_mqo_plm <- plm::plm(
+  y ~ x,
+  data = PetersenCL,
+  index = c("firm", "year"),
+  model = "pooling"
+)
+
+# Apresenta coeficientes, erros-padrão convencionais e testes t
+# sob as hipóteses clássicas do modelo (inferência não robusta).
+lmtest::coeftest(modelo_mqo_plm)
+
+# Calcula a matriz de covariância robusta (White–Arellano),
+# com agrupamento por empresa (dependência arbitrária dentro de firm).
+vcov_mqo_arellano_empresa <- plm::vcovHC(
+  modelo_mqo_plm,
+  method = "arellano",
+  type = "HC0",
+  cluster = "group"
+)
+
+# Apresenta os mesmos coeficientes, recalculando erros-padrão e testes t
+# a partir da matriz de covariância White–Arellano.
+lmtest::coeftest(
+  modelo_mqo_plm,
+  vcov. = vcov_mqo_arellano_empresa
+)
+
+# Calcula a matriz de covariância de Driscoll–Kraay (HAC com dependência transversal),
+# usando a defasagem máxima padrão do `plm` (argumento `maxlag` não informado).
+vcov_mqo_driscoll_kraay <- plm::vcovSCC(modelo_mqo_plm)
+
+# Apresenta os mesmos coeficientes, recalculando erros-padrão e testes t
+# a partir da matriz de covariância Driscoll–Kraay.
+lmtest::coeftest(
+  modelo_mqo_plm,
+  vcov. = vcov_mqo_driscoll_kraay
+)
+```
+
+
+### 1.2. Reprodução dos resultados com `fixest`
+
+Complete as lacunas para estimar o mesmo modelo e apresentar os resultados dos três procedimentos de inferência. Estime o modelo uma única vez.
+
+```{r}
+#| label: q1-fixest
+#| eval: true
+
+# Estima o modelo MQO combinado com fixest,
+# identificando as empresas e os períodos do painel.
+modelo_mqo_fixest <- fixest::feols(
+  y ~ x,
+  data = PetersenCL,
+  panel.id = ~ firm + year
+)
+
+# Apresenta os coeficientes e a inferência convencional.
+summary(modelo_mqo_fixest, vcov = "iid")
+
+# Apresenta a inferência White–Arellano,
+# com erros-padrão agrupados por empresa.
+summary(modelo_mqo_fixest, vcov = ~ firm)
+
+# Apresenta a inferência de Driscoll–Kraay,
+# informando a variável temporal e utilizando
+# a seleção automática da defasagem.
+summary(
+  modelo_mqo_fixest,
+  vcov = fixest::vcov_DK(time = ~ year)
+)
+```
+
+
+### 1.3. Comparação dos resultados
+
+Registre os **erros-padrão do coeficiente de `x`** com quatro casas decimais, substituindo os traços da tabela pelos valores obtidos.
+
+```{r}
+#| label: q1-tabela-ep
+#| echo: false
+
+# Extrai o erro-padrão do coeficiente de x em cada procedimento,
+# para preencher a tabela com os valores calculados acima.
+ep <- function(v) sprintf("%.4f", sqrt(diag(v))["x"])
+ep_plm <- c(
+  conv = ep(vcov(modelo_mqo_plm)),
+  wa   = ep(vcov_mqo_arellano_empresa),
+  dk   = ep(vcov_mqo_driscoll_kraay)
+)
+ep_fixest <- c(
+  conv = ep(vcov(modelo_mqo_fixest, vcov = "iid")),
+  wa   = ep(vcov(modelo_mqo_fixest, vcov = ~ firm)),
+  dk   = ep(vcov(modelo_mqo_fixest, vcov = fixest::vcov_DK(time = ~ year)))
+)
+```
+
+| Procedimento             | `plm` | `fixest` |
+|--------------------------|------:|---------:|
+| Convencional             | `r ep_plm["conv"]` | `r ep_fixest["conv"]` |
+| White–Arellano (empresa) | `r ep_plm["wa"]`   | `r ep_fixest["wa"]`   |
+| Driscoll–Kraay           | `r ep_plm["dk"]`   | `r ep_fixest["dk"]`   |
+
+Os valores convencionais coincidem nos dois pacotes. No agrupamento por empresa, a pequena diferença (0,0505 contra 0,0506) vem da correção de amostra finita que o `fixest` aplica por padrão, $\frac{G}{G-1}\cdot\frac{n-1}{n-K}$ com $G = 500$ empresas, enquanto o código do `plm` usa `type = "HC0"`, sem correção. Em Driscoll–Kraay a diferença é maior (0,0282 contra 0,0297) pelo mesmo motivo: os dois pacotes usam uma defasagem ($L = 1$), mas o `fixest` aplica o fator $\frac{G}{G-1}$ com $G = 10$ períodos, o que multiplica o erro-padrão por cerca de $\sqrt{10/9} \approx 1{,}054$.
+
+
+
+**a)**  
+
+Não. O coeficiente de `x` é 1,0348 nos três procedimentos e nos dois pacotes. A estimativa vem do estimador de MQO combinado, $\hat\beta = (X'X)^{-1}X'y$, que é o mesmo em todos os casos. O que muda é apenas a matriz de covariância usada para medir a incerteza: a convencional supõe erros homocedásticos e independentes, White–Arellano permite dependência arbitrária dentro de cada empresa e Driscoll–Kraay permite dependência entre empresas no mesmo período e ao longo do tempo. Trocar a inferência altera erros-padrão, estatísticas $t$, valores-p e intervalos de confiança, mas não a estimativa pontual.
+
+**b)** 
+
+Com $T = 10$, Driscoll–Kraay não é uma escolha confiável. A justificativa do estimador é assintótica na dimensão temporal: ele agrega os escores das empresas em cada período e trata essa série de 10 observações como base para estimar uma matriz HAC, que só é consistente quando $T$ é grande. Com tão poucos períodos, a matriz é estimada com pouca precisão e tende a subestimar a variância, e a defasagem automática ($L = 1$) só capta dependência entre períodos adjacentes.
+
+A magnitude do erro-padrão também não basta para decidir. Aqui o erro-padrão de Driscoll–Kraay (cerca de 0,028 a 0,030) é praticamente igual ao convencional e bem menor que o agrupado por empresa (0,0505). Isso não indica mais precisão, e sim que o procedimento não capta a principal fonte de dependência destes dados: um componente persistente da empresa, que correlaciona os erros de uma mesma firma em todos os anos, inclusive em defasagens maiores que 1. Como a base não tem efeitos comuns de período, a dependência entre empresas, que é o que justificaria Driscoll–Kraay, não é o problema relevante. A escolha da matriz deve partir da estrutura de dependência plausível e das condições de validade de cada estimador, e neste caso o agrupamento por empresa, com $G = 500$ grupos, é o procedimento adequado, como mostra Petersen (2009).
+
+
+
+
+## Questão 2 — MQO combinado versus Efeitos Fixos
+
+### 2.1. Estimação e inferência com `plm`
+
+O código abaixo estima o modelo de efeitos fixos por empresa e apresenta a inferência White–Arellano agrupada por empresa.
+
+```{r}
+#| label: q2-plm
+
+# Estima o modelo de efeitos fixos por empresa.
+modelo_ef_plm <- plm::plm(
+  y ~ x,
+  data = PetersenCL,
+  index = c("firm", "year"),
+  model = "within"
+)
+
+# Calcula a matriz de covariância robusta (White–Arellano),
+# com agrupamento por empresa (dependência arbitrária dentro de firm).
+vcov_ef_arellano_empresa <- plm::vcovHC(
+  modelo_ef_plm,
+  method = "arellano",
+  type = "HC0",
+  cluster = "group"
+)
+
+# Apresenta coeficientes, erros-padrão e testes t
+# a partir da matriz de covariância White–Arellano.
+lmtest::coeftest(
+  modelo_ef_plm,
+  vcov. = vcov_ef_arellano_empresa
+)
+```
+
+
+### 2.2. Reprodução dos resultados com `fixest`
+
+Complete as lacunas para estimar o modelo com **efeitos fixos por empresa, sem efeitos fixos de período**, e apresente erros-padrão agrupados por empresa.
+
+```{r}
+#| label: q2-fixest
+#| eval: true
+
+# Estima o modelo com efeitos fixos por empresa,
+# sem incluir efeitos fixos de período.
+modelo_ef_fixest <- fixest::feols(
+  y ~ x | firm,
+  data = PetersenCL,
+  panel.id = ~ firm + year
+)
+
+# Apresenta a inferência White–Arellano,
+# com erros-padrão agrupados por empresa.
+summary(modelo_ef_fixest, vcov = ~ firm)
+```
+
+
+### 2.3. Interpretação
+
+**a)** 
+
+O coeficiente de `x` é 1,0348 no MQO combinado e 0,9699 no modelo de efeitos fixos por empresa, com erros-padrão agrupados por empresa de 0,0505 e 0,0301, respectivamente. Na Questão 1 o estimador era o mesmo e só a matriz de covariância mudava, por isso o coeficiente não se alterava. Aqui o que muda é o próprio estimador: a transformação *within* elimina $\alpha_i$ e passa a usar apenas a variação de `x` dentro de cada empresa ao longo do tempo, descartando as diferenças entre empresas que o MQO combinado também aproveita. Por isso o coeficiente muda, e a comparação deixa de ser uma questão de inferência para se tornar uma questão de identificação: se $\alpha_i$ for correlacionado com `x`, o MQO combinado é inconsistente e o EF não; se não for, os dois são consistentes e a diferença reflete variabilidade amostral.
+
+Neste caso a diferença (cerca de 0,065) é pequena diante do erro-padrão agrupado do MQO combinado, e uma verificação no estilo de Mundlak, que inclui a média de `x` por empresa na regressão combinada, não rejeita a ausência dessa correlação (valor-p de cerca de 0,20). Os dados parecem compatíveis com a ideia de que o componente da empresa afeta sobretudo a dependência dos erros, e não a consistência do MQO combinado. A inclusão do efeito fixo também reduz o erro-padrão, porque remove do erro o componente persistente da empresa, que era a principal fonte de correlação dentro dos grupos.
+
+```{r}
+#| label: q2-mundlak
+
+# Complemento: verificação de Mundlak com a média de x por empresa,
+# usando erros-padrão agrupados por empresa.
+PetersenCL$x_media_empresa <- ave(PetersenCL$x, PetersenCL$firm)
+modelo_mundlak <- fixest::feols(y ~ x + x_media_empresa, data = PetersenCL)
+summary(modelo_mundlak, vcov = ~ firm)
+```
