@@ -239,8 +239,8 @@ ambiental podem atenuar os efeitos de eventos extremos de temperatura e
 precipitação sobre a produção agrícola?
 
 **Dados.** O estudo utiliza dados do estado de São Paulo agregados em
-**568 Minimum Comparable Areas (MCAs)** — grupos de municípios historicamente
-comparáveis — acompanhadas entre **1990 e 2014**.
+**568 Minimum Comparable Areas (MCAs)** (grupos de municípios historicamente
+comparáveis), acompanhadas entre **1990 e 2014**.
 
 **Estratégia geral.** Os autores primeiro classificam as MCAs segundo duas
 dimensões: **cobertura e uso do solo** e **intensidade tecnológica da
@@ -698,7 +698,7 @@ Na saída de `summary()`, essa especificação aparecerá como
 
 `Oneway (individual) effect Within Model`.
 
-`Oneway (individual)` indica efeitos fixos em **uma dimensão** — as unidades —,
+`Oneway (individual)` indica efeitos fixos em **uma dimensão**, as unidades,
 enquanto `Within Model` identifica o estimador *within* utilizado.
 
 Neste ponto estamos introduzindo apenas os **efeitos fixos individuais**. A

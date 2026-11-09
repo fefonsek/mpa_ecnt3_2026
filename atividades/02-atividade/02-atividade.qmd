@@ -50,7 +50,7 @@ $$
 Os índices são `id` (trabalhadora) e `year` (ano). As variáveis `educ` (escolaridade) e `black` (indicadora se a mulher é negra, ou não) são **invariáveis no tempo** neste painel. As variáveis `exper`, `tenure`, `south` e `union` podem variar. Os termos quadráticos de experiência e tempo no emprego devem ser mantidos em todos os modelos em que essas regressoras aparecem.
 
 
-## Questão 1 — Estrutura do painel 
+## Questão 1: Estrutura do painel 
 
 Crie um objeto chamado `nls_painel` com `plm::pdata.frame()`, informando `id` e `year` como índices. Utilize `plm::pdim()` para verificar o número de trabalhadoras, os períodos observados, o total de observações e se o painel é balanceado. Identifique também os anos presentes na base.
 
@@ -71,7 +71,7 @@ sort(unique(nls_panel$year))
 
 
 
-## Questão 2 — Variação dentro e entre trabalhadoras
+## Questão 2: Variação dentro e entre trabalhadoras
 
 Explique por que os coeficientes de `educ` e `black` não são identificados pelo estimador *within* de efeitos fixos. Como essas variáveis podem contribuir para a estimação por efeitos aleatórios?
 
@@ -81,7 +81,7 @@ No modelo de efeitos aleatórios a transformação é parcial (*quasi-demeaning*
 
 
 
-## Questão 3 — Estimação e comparação 
+## Questão 3: Estimação e comparação 
 
 Estime os modelos abaixo, salvando os resultados com os nomes indicados:
 
@@ -209,15 +209,15 @@ c(pool = nobs(modelo_pool), ef = nobs(modelo_ef), ea = nobs(modelo_ea))
 
 
 
-## Questão 4 — Comparação dos coeficientes
+## Questão 4: Comparação dos coeficientes
 
-Preencha a tabela com os coeficientes estimados (quatro casas decimais). Você pode recuperar as estimativas com `coef(modelo_pool)`, `coef(modelo_ef)` e `coef(modelo_ea)`. Use `—` quando o 
+Preencha a tabela com os coeficientes estimados (quatro casas decimais). Você pode recuperar as estimativas com `coef(modelo_pool)`, `coef(modelo_ef)` e `coef(modelo_ea)`. Use `n.i.` (não identificado) quando o 
 coeficiente não for identificado pelo estimador.
 
 | Regressora | MQO agrupado | Efeitos fixos | Efeitos aleatórios |
 |:---|---:|---:|---:|
-| `educ` | 0,0714 | — | 0,0733 |
-| `black` | -0,1167 | — | -0,1167 |
+| `educ` | 0,0714 | n.i. | 0,0733 |
+| `black` | -0,1167 | n.i. | -0,1167 |
 | `south` | -0,1060 | -0,0163 | -0,0818 |
 | `union` | 0,1322 | 0,0637 | 0,0802 |
 
@@ -234,7 +234,7 @@ O MQO agrupado usa as diferenças entre trabalhadoras e, por isso, mistura o pap
 
 
 
-## Questão 5 — Como um modelo de efeitos aleatórios utiliza a estrutura do erro?
+## Questão 5: Como um modelo de efeitos aleatórios utiliza a estrutura do erro?
 
 Consulte os componentes de variância e o parâmetro `theta` estimados pelo modelo de EA. Em até **três frases**, explique a função da transformação *quasi-demeaning* e por que ela preserva parte da informação *between*.
 
@@ -249,7 +249,7 @@ plm::ercomp(modelo_ea)
 
 
 
-## Questão 6 — Teste de Hausman 
+## Questão 6: Teste de Hausman 
 
 Aplique **o teste convencional de Hausman** aos modelos `modelo_ef` e `modelo_ea`, utilizando a função `plm::phtest()`. Informe a estatística do teste, os graus de liberdade e o valor-p. Considere um nível de significância de **5%**.
 
@@ -267,7 +267,7 @@ teste_hausman
 
 
 
-## Questão 7 — O que o teste efetivamente compara?
+## Questão 7: O que o teste efetivamente compara?
 
 **a)** Formule, com suas palavras, as hipóteses nula e alternativa do teste de Hausman. Quais são os **seis coeficientes comuns** comparados nesta aplicação?
 
@@ -280,7 +280,7 @@ teste_hausman
 
 
 
-## Questão 8 — Avaliação econométrica
+## Questão 8: Avaliação econométrica
 
 Considere a hipótese adicional exigida pelo modelo convencional de efeitos aleatórios:
 
@@ -317,7 +317,7 @@ plm::phtest(
 
 
 
-## Questão 9 — Conclusão da análise
+## Questão 9: Conclusão da análise
 
 Em **um parágrafo curto**, apresente uma conclusão sobre a aplicação ao painel NLS. Sua resposta deve integrar: (i) uma diferença relevante entre as estimativas dos modelos de EF e EA; (ii) o resultado do teste de Hausman; (iii) a hipótese adicional de exogeneidade do modelo de EA; e (iv) pelo menos uma limitação da interpretação do teste.
 

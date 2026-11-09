@@ -1,5 +1,5 @@
 ---
-title: "Econometria III <br> Atividade 3 — Resolução"
+title: "Econometria III <br> Atividade 3: Resolução"
 subtitle: "Inferência robusta em modelos para dados em painel com R"
 author: "Felipe Fonseca"
 lang: pt-BR
@@ -31,7 +31,7 @@ data("PetersenCL", package = "sandwich")
 
 
 
-## Questão 1 — Comparação dos procedimentos de inferência
+## Questão 1: Comparação dos procedimentos de inferência
 
 ### 1.1. Estimação e inferência com `plm`
 
@@ -160,7 +160,7 @@ A magnitude do erro-padrão também não basta para decidir. Aqui o erro-padrão
 
 
 
-## Questão 2 — MQO combinado versus Efeitos Fixos
+## Questão 2: MQO combinado versus Efeitos Fixos
 
 ### 2.1. Estimação e inferência com `plm`
 
